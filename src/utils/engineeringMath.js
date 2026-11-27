@@ -1,25 +1,31 @@
-// Pure engineering calculations for Data Center Commissioning Lab
+// Pure engineering calculations for Data Center Commissioning Lab v2
 
 /**
  * Computes per-lineup load distribution for Distributed Redundant (N-to-N-1)
- * or Block Redundant (N+1 Catcher) UPS architectures.
+ * or Block Redundant (N+1 Catcher) UPS architectures with multi-fault support.
  */
-export function calculateTopology({ mode, numUnits, unitRatingMW, totalLoadMW, trippedIndex }) {
+export function calculateTopology({ mode, numUnits, unitRatingMW, totalLoadMW, trippedIndices = [] }) {
   const nMinus1Units = Math.max(1, numUnits - 1);
   const firmCapacityMW = Number((nMinus1Units * unitRatingMW).toFixed(2));
   const installedCapacityMW = Number((numUnits * unitRatingMW).toFixed(2));
   const firmUtilizationPct = firmCapacityMW > 0 ? (totalLoadMW / firmCapacityMW) * 100 : 0;
 
+  const trippedSet = new Set(trippedIndices);
   const units = [];
   let maxUnitLoadPct = 0;
   let anyOverload = false;
+  let unservedLoadMW = 0;
 
   if (mode === 'distributed') {
-    const healthyCount = trippedIndex !== null ? numUnits - 1 : numUnits;
+    const healthyCount = Math.max(0, numUnits - trippedSet.size);
     const loadPerHealthy = healthyCount > 0 ? totalLoadMW / healthyCount : 0;
+    if (healthyCount === 0 && totalLoadMW > 0) {
+      unservedLoadMW = totalLoadMW;
+      anyOverload = true;
+    }
 
     for (let i = 0; i < numUnits; i++) {
-      const isTripped = trippedIndex === i;
+      const isTripped = trippedSet.has(i);
       const loadMW = isTripped ? 0 : loadPerHealthy;
       const loadPct = unitRatingMW > 0 ? (loadMW / unitRatingMW) * 100 : 0;
       const isOverloaded = !isTripped && loadMW > unitRatingMW + 0.001;
@@ -43,20 +49,30 @@ export function calculateTopology({ mode, numUnits, unitRatingMW, totalLoadMW, t
     const catcherIndex = numUnits - 1;
     const primaryCount = numUnits - 1;
     const basePrimaryLoad = primaryCount > 0 ? totalLoadMW / primaryCount : 0;
-    const primaryTripped = trippedIndex !== null && trippedIndex < catcherIndex;
-    const catcherTripped = trippedIndex === catcherIndex;
+
+    let trippedPrimaryCount = 0;
+    for (let i = 0; i < catcherIndex; i++) {
+      if (trippedSet.has(i)) trippedPrimaryCount++;
+    }
+
+    const catcherHealthy = !trippedSet.has(catcherIndex);
+    const catcherLoadMW = catcherHealthy && trippedPrimaryCount > 0 ? basePrimaryLoad * trippedPrimaryCount : 0;
+    if (!catcherHealthy && trippedPrimaryCount > 0) {
+      unservedLoadMW = basePrimaryLoad * trippedPrimaryCount;
+      anyOverload = true;
+    }
 
     for (let i = 0; i < numUnits; i++) {
       const isCatcher = i === catcherIndex;
-      const isTripped = trippedIndex === i;
+      const isTripped = trippedSet.has(i);
       let loadMW = 0;
       let stsTransferred = false;
 
       if (!isTripped) {
         if (!isCatcher) {
           loadMW = basePrimaryLoad;
-        } else if (primaryTripped) {
-          loadMW = basePrimaryLoad;
+        } else if (trippedPrimaryCount > 0) {
+          loadMW = catcherLoadMW;
           stsTransferred = true;
         }
       }
@@ -76,7 +92,6 @@ export function calculateTopology({ mode, numUnits, unitRatingMW, totalLoadMW, t
         loadPct,
         isOverloaded,
         stsTransferred,
-        catcherLost: catcherTripped,
       });
     }
   }
@@ -88,6 +103,8 @@ export function calculateTopology({ mode, numUnits, unitRatingMW, totalLoadMW, t
     firmUtilizationPct,
     maxUnitLoadPct,
     anyOverload,
+    unservedLoadMW,
+    trippedCount: trippedSet.size,
     redundancyLabel: mode === 'distributed' ? `${numUnits}-to-${numUnits - 1}` : `(${numUnits - 1})+1 Catcher`,
   };
 }
@@ -116,15 +133,12 @@ export function calculatePsychrometrics({ supplyTempC, supplyRH, deltaTC, itLoad
   const pwsSupply = saturationVaporPressure(supplyTempC);
   const pwSupply = Math.max(0.01, (supplyRH / 100) * pwsSupply);
 
-  // Dew Point (°C)
   const lnRatio = Math.log(pwSupply / 0.61078);
   const dewPointC = (237.3 * lnRatio) / (17.27 - lnRatio);
 
-  // Humidity Ratio W (kg/kg) & g/kg
   const wKgKg = (0.621945 * pwSupply) / (pressureKPa - pwSupply);
   const wGKg = wKgKg * 1000;
 
-  // Wet Bulb (°C) via Stull empirical approximation
   const wetBulbC =
     supplyTempC * Math.atan(0.151977 * Math.pow(supplyRH + 8.313659, 0.5)) +
     Math.atan(supplyTempC + supplyRH) -
@@ -132,20 +146,16 @@ export function calculatePsychrometrics({ supplyTempC, supplyRH, deltaTC, itLoad
     0.00391838 * Math.pow(supplyRH, 1.5) * Math.atan(0.023101 * supplyRH) -
     4.686035;
 
-  // Specific Enthalpy (kJ/kg)
   const enthalpyKJkg = 1.006 * supplyTempC + wKgKg * (2501 + 1.86 * supplyTempC);
 
-  // Return air state (100% sensible heat addition -> constant W and constant Dew Point)
   const returnTempC = supplyTempC + deltaTC;
   const pwsReturn = saturationVaporPressure(returnTempC);
   const returnRH = Math.min(100, (pwSupply / pwsReturn) * 100);
 
-  // Required Airflow (m³/s and CFM)
   const qKW = itLoadMW * 1000;
   const airflowM3s = qKW / (1.2 * 1.005 * Math.max(1, deltaTC));
   const airflowCFM = airflowM3s * 2118.88;
 
-  // ASHRAE TC 9.9 Class A1 Recommended Envelope check
   const tempOk = supplyTempC >= 18 && supplyTempC <= 27;
   const dpOk = dewPointC >= 5.5 && dewPointC <= 15.0;
   const rhOk = supplyRH <= 60;

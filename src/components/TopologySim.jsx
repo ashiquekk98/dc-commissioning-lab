@@ -1,37 +1,68 @@
 import React, { useState } from 'react';
-import { Zap, AlertTriangle, CheckCircle2, RotateCcw, ShieldAlert } from 'lucide-react';
+import {
+  Zap,
+  AlertTriangle,
+  CheckCircle2,
+  RotateCcw,
+  ShieldAlert,
+  ChevronDown,
+  ChevronRight,
+  Info,
+} from 'lucide-react';
 import { calculateTopology } from '../utils/engineeringMath';
+
+const TOPIC_CARDS = [
+  {
+    id: 'dist-vs-block',
+    title: 'Distributed (N-to-N-1) vs. Block (N+1 Catcher)',
+    detail:
+      'Distributed redundancy shares the IT load concurrently across N independent UPS lineups—there are no Static Transfer Switches (STS) in the critical path. Block Redundant runs primary lineups near 90–100% and relies on an unloaded Catcher UPS transferring via STS within < 4–6 ms during a fault.',
+  },
+  {
+    id: 'concurrent-maint',
+    title: 'Testing N-2 (Maintenance + Unexpected Fault)',
+    detail:
+      'Click two UPS cards below to simulate taking one lineup offline for scheduled preventive maintenance while a second lineup unexpectedly trips. Watch how peak lineup loading jumps and whether the remaining buses stay below 100% rating.',
+  },
+];
 
 export default function TopologySim() {
   const [mode, setMode] = useState('distributed');
-  const [numUnits, setNumUnits] = useState(5);
+  const [numUnits, setNumUnits] = useState(6);
   const [unitRatingMW, setUnitRatingMW] = useState(2.5);
-  const [totalLoadMW, setTotalLoadMW] = useState(8.8);
-  const [trippedIndex, setTrippedIndex] = useState(null);
+  const [totalLoadMW, setTotalLoadMW] = useState(11.0);
+  const [trippedIndices, setTrippedIndices] = useState([]);
+  const [openTopic, setOpenTopic] = useState(null);
 
   const result = calculateTopology({
     mode,
     numUnits,
     unitRatingMW,
     totalLoadMW,
-    trippedIndex,
+    trippedIndices,
   });
 
   const handleModeChange = (nextMode) => {
     setMode(nextMode);
-    setTrippedIndex(null);
+    setTrippedIndices([]);
   };
 
   const handleUnitCountChange = (count) => {
     setNumUnits(count);
-    setTrippedIndex(null);
+    setTrippedIndices([]);
   };
 
-  const triggerRandomTrip = () => {
-    if (trippedIndex !== null) {
-      setTrippedIndex(null);
+  const toggleUnitTrip = (id) => {
+    setTrippedIndices((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleQuickFault = () => {
+    if (trippedIndices.length > 0) {
+      setTrippedIndices([]);
     } else {
-      setTrippedIndex(0);
+      setTrippedIndices([0]);
     }
   };
 
@@ -47,7 +78,7 @@ export default function TopologySim() {
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => handleModeChange('distributed')}
-              className={`px-3 py-2.5 rounded-lg text-xs font-semibold border transition text-left ${
+              className={`px-3 py-2.5 rounded-lg text-xs font-semibold border transition text-left cursor-pointer ${
                 mode === 'distributed'
                   ? 'bg-emerald-500/15 border-emerald-500/60 text-emerald-300'
                   : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
@@ -58,7 +89,7 @@ export default function TopologySim() {
             </button>
             <button
               onClick={() => handleModeChange('catcher')}
-              className={`px-3 py-2.5 rounded-lg text-xs font-semibold border transition text-left ${
+              className={`px-3 py-2.5 rounded-lg text-xs font-semibold border transition text-left cursor-pointer ${
                 mode === 'catcher'
                   ? 'bg-emerald-500/15 border-emerald-500/60 text-emerald-300'
                   : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
@@ -70,7 +101,7 @@ export default function TopologySim() {
           </div>
         </div>
 
-        {/* Sliders */}
+        {/* Sliders (Up to 10 Lineups & 36 MW) */}
         <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
           <div>
             <div className="flex justify-between text-xs mb-1">
@@ -80,7 +111,7 @@ export default function TopologySim() {
             <input
               type="range"
               min={3}
-              max={6}
+              max={10}
               step={1}
               value={numUnits}
               onChange={(e) => handleUnitCountChange(Number(e.target.value))}
@@ -112,8 +143,8 @@ export default function TopologySim() {
             <input
               type="range"
               min={1.0}
-              max={18.0}
-              step={0.2}
+              max={36.0}
+              step={0.5}
               value={totalLoadMW}
               onChange={(e) => setTotalLoadMW(Number(e.target.value))}
               className="w-full accent-cyan-400 cursor-pointer"
@@ -124,16 +155,16 @@ export default function TopologySim() {
         {/* Fault Injection Action */}
         <div className="lg:col-span-3 flex flex-col justify-center gap-2">
           <button
-            onClick={triggerRandomTrip}
+            onClick={handleQuickFault}
             className={`w-full py-2.5 px-4 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition cursor-pointer ${
-              trippedIndex !== null
+              trippedIndices.length > 0
                 ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
                 : 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-950/50'
             }`}
           >
-            {trippedIndex !== null ? (
+            {trippedIndices.length > 0 ? (
               <>
-                <RotateCcw className="w-4 h-4" /> Restore All Lineups
+                <RotateCcw className="w-4 h-4" /> Restore All ({trippedIndices.length} Offline)
               </>
             ) : (
               <>
@@ -142,7 +173,7 @@ export default function TopologySim() {
             )}
           </button>
           <p className="text-[11px] text-center text-slate-400">
-            Click any UPS module below to trip or restore it
+            Click 1 or more UPS cards below to test N-1 / N-2
           </p>
         </div>
       </div>
@@ -174,11 +205,11 @@ export default function TopologySim() {
           <div className="mt-1 flex items-center gap-1.5 text-sm font-semibold">
             {result.anyOverload ? (
               <span className="text-rose-400 flex items-center gap-1">
-                <AlertTriangle className="w-4 h-4" /> Overload / Bypass
+                <AlertTriangle className="w-4 h-4" /> Overload / Load Loss
               </span>
-            ) : trippedIndex !== null ? (
+            ) : trippedIndices.length > 0 ? (
               <span className="text-amber-300 flex items-center gap-1">
-                <ShieldAlert className="w-4 h-4" /> N-1 Degraded Safe
+                <ShieldAlert className="w-4 h-4" /> N-{trippedIndices.length} Degraded Safe
               </span>
             ) : (
               <span className="text-emerald-400 flex items-center gap-1">
@@ -190,7 +221,7 @@ export default function TopologySim() {
       </div>
 
       {/* Interactive Lineup Bus Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
         {result.units.map((unit) => {
           const barWidth = Math.min(100, unit.loadPct);
           let borderClass = 'border-slate-800 bg-slate-900/70 hover:border-slate-700';
@@ -212,7 +243,7 @@ export default function TopologySim() {
           return (
             <button
               key={unit.id}
-              onClick={() => setTrippedIndex(unit.isTripped ? null : unit.id)}
+              onClick={() => toggleUnitTrip(unit.id)}
               className={`text-left rounded-xl border p-4 transition cursor-pointer flex flex-col justify-between ${borderClass}`}
             >
               <div>
@@ -262,20 +293,37 @@ export default function TopologySim() {
         })}
       </div>
 
-      {/* Commissioning Engineer Note */}
-      <div className="bg-slate-900/50 border border-slate-800/80 rounded-xl p-4 text-xs text-slate-300 leading-relaxed">
-        <span className="font-semibold text-emerald-400">IST Commissioning Insight: </span>
-        {mode === 'distributed'
-          ? `In a ${numUnits}-to-${
-              numUnits - 1
-            } distributed redundant plant, each lineup normally runs below ${Math.round(
-              ((numUnits - 1) / numUnits) * 100
-            )}% capacity so any single bus failure redistributes seamlessly across the remaining ${
-              numUnits - 1
-            } lineups without Static Transfer Switch (STS) break-before-make transfer risk.`
-          : `In a (${
-              numUnits - 1
-            })+1 Block Redundant (Catcher) topology, primary lineups operate near full rating while the Catcher sits unloaded on standby. During Level 5 IST, verify STS transfer time (< 4–6 ms) and step-load acceptance on the Catcher UPS inverters.`}
+      {/* Clickable Subject Explainers */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {TOPIC_CARDS.map((card) => {
+          const isOpen = openTopic === card.id;
+          return (
+            <div
+              key={card.id}
+              className="bg-slate-900/60 border border-slate-800 rounded-xl overflow-hidden"
+            >
+              <button
+                onClick={() => setOpenTopic(isOpen ? null : card.id)}
+                className="w-full px-4 py-3 flex items-center justify-between text-left text-xs font-semibold text-slate-200 hover:text-emerald-300 transition cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <Info className="w-4 h-4 text-emerald-400 shrink-0" />
+                  {card.title}
+                </span>
+                {isOpen ? (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                )}
+              </button>
+              {isOpen && (
+                <div className="px-4 pb-3.5 text-xs text-slate-300 leading-relaxed border-t border-slate-800/70 pt-2.5">
+                  {card.detail}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
