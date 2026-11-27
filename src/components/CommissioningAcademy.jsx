@@ -1,10 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ClipboardCheck,
   ShieldAlert,
-  Zap,
-  Flame,
-  Activity,
   CheckCircle2,
   ChevronRight,
   ChevronDown,
@@ -13,6 +10,9 @@ import {
   Award,
   AlertTriangle,
   Info,
+  Wrench,
+  Printer,
+  RotateCcw,
 } from 'lucide-react';
 
 const LEVELS = [
@@ -126,8 +126,8 @@ const LEVELS = [
       ],
     },
     simLink: {
-      tab: 'topology',
-      label: 'Test Redundant Bus Protection in Topology Lab',
+      tab: 'protection',
+      label: 'Test Relay Selectivity & Arc-Flash in Protection Lab',
     },
   },
   {
@@ -297,16 +297,77 @@ const LEVELS = [
       ],
     },
     simLink: {
-      tab: 'topology',
-      label: 'Simulate This Exact 5-to-4 Trip in Topology Lab',
+      tab: 'blackbuilding',
+      label: 'Run Full Black-Building Sequence in IST Lab',
     },
   },
 ];
 
-export default function CommissioningAcademy({ onNavigateTab }) {
+const FIELD_DEFECTS = [
+  {
+    id: 'defect-1',
+    code: 'CASE-01 • MV/LV PROTECTION',
+    title: 'Nuisance Main Breaker Trip on Downstream Feeder Fault',
+    clues: [
+      'Event Log: 28 kA short circuit on Feeder PDU-04 caused upstream 4000 A Main Incomer to trip simultaneously.',
+      'Relay Audit: Upstream ACB Instantaneous pickup (Ii) was left at factory default 6× Ir (24 kA), overlapping the fault level.',
+      'Impact: Entire 12 MW data hall bus dropped instead of isolating PDU-04.',
+    ],
+    rootCause:
+      'Instantaneous pickup (Ii) overlap defeated time-current selectivity. Raising upstream Ii above maximum prospective fault current and setting Short-Time Delay (Isd) to ≥ 0.25s restores full selectivity.',
+    simTab: 'protection',
+    simCta: 'Reproduce & Fix in Protection Lab',
+  },
+  {
+    id: 'defect-2',
+    code: 'CASE-02 • HYDRONIC & DGU',
+    title: 'Chilled-Water Differential Pressure (ΔP) Hunting During L4 FPT',
+    clues: [
+      'BMS Trend: Primary/Secondary CHW loop ΔP oscillates wildly ±45 kPa every 90 seconds at 50% load.',
+      'Field Inspection: Micro-bubbles detected at high-point automatic air vents; Degassing Unit (DGU) running in manual bypass.',
+      'Impact: CRAH two-way control valves hunt continuously, destabilizing supply air temperature.',
+    ],
+    rootCause:
+      'Entrained air pockets in the upper chilled-water header caused pump cavitation and erratic ΔP transmitter readings. Placing the DGU into continuous vacuum degassing mode and venting high points stabilized ΔP within ±2 kPa.',
+    simTab: 'psychrometrics',
+    simCta: 'Check CRAH Supply Stability in Psychrometrics Lab',
+  },
+  {
+    id: 'defect-3',
+    code: 'CASE-03 • BLACK-BUILDING IST',
+    title: 'Under-Frequency Trip (47.6 Hz) at T+25s During Blackout Test',
+    clues: [
+      'Waveform Capture: Generators started and picked up 10 MW IT load smoothly at T+16s (49.7 Hz).',
+      'Failure Point: At T+25s, all three 1.5 MW chillers restarted simultaneously, creating a 9.9 MW magnetizing/LRA inrush spike.',
+      'Impact: Bus frequency dipped to 47.6 Hz, triggering ANSI 81U under-frequency lockout.',
+    ],
+    rootCause:
+      'Zero stagger delay between chiller restart sequences exceeded the generator plant transient step-load limit. Programming a 12-second stagger between chiller stages keeps frequency above 48.9 Hz.',
+    simTab: 'blackbuilding',
+    simCta: 'Test 12s Chiller Stagger in Black-Building Lab',
+  },
+];
+
+export default function CommissioningAcademy({ onNavigateTab, lang }) {
   const [selectedLevelId, setSelectedLevelId] = useState('L1');
   const [expandedSubjectId, setExpandedSubjectId] = useState('fwt-protocol');
-  const [answers, setAnswers] = useState({});
+  const [answers, setAnswers] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dc_lab_academy_answers_v3');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [openDefectId, setOpenDefectId] = useState('defect-1');
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('dc_lab_academy_answers_v3', JSON.stringify(answers));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [answers]);
 
   const activeLevel = LEVELS.find((l) => l.id === selectedLevelId) || LEVELS[0];
   const selectedAnswerIdx = answers[activeLevel.id];
@@ -320,28 +381,40 @@ export default function CommissioningAcademy({ onNavigateTab }) {
     setExpandedSubjectId(lvl.subjects[0]?.id || null);
   };
 
+  const resetProgress = () => {
+    setAnswers({});
+    localStorage.removeItem('dc_lab_academy_answers_v3');
+  };
+
   return (
     <div className="space-y-6">
-      {/* Intro & Progress Banner */}
+      {/* Intro & Persistent Mastery Banner */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/30 border border-slate-800 rounded-xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="space-y-1 max-w-2xl">
           <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
             <BookOpen className="w-3.5 h-3.5" />
-            <span>Interactive Commissioning Walkthrough</span>
+            <span>
+              {lang === 'IT'
+                ? 'Percorso Interattivo Commissioning (Dal Cantiere alla Messa in Servizio)'
+                : 'Interactive Commissioning Walkthrough'}
+            </span>
           </div>
           <h3 className="text-base sm:text-lg font-bold text-slate-100">
-            How a Hyperscale Data Center Goes From Bare Concrete to Live Power
+            {lang === 'IT'
+              ? 'Come un Data Center Hyperscale Passa dal Cemento alla Piena Potenza'
+              : 'How a Hyperscale Data Center Goes From Bare Concrete to Live Power'}
           </h3>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Click any commissioning gate below (Level 1 to Level 5), expand technical subjects to inspect field deliverables and real-world traps, and solve each stage’s engineering check.
+            Click any commissioning gate below (Level 1 to Level 5), inspect field deliverables and real-world traps, and solve each stage’s engineering check. Your progress saves automatically.
           </p>
         </div>
 
-        {/* Mastery Meter */}
-        <div className="bg-slate-950/90 border border-slate-800 rounded-xl px-4 py-3 shrink-0 min-w-[200px]">
-          <div className="flex items-center justify-between text-xs mb-1.5">
+        {/* Mastery Meter + Print / Reset */}
+        <div className="bg-slate-950/90 border border-slate-800 rounded-xl px-4 py-3 shrink-0 min-w-[230px] space-y-2">
+          <div className="flex items-center justify-between text-xs">
             <span className="text-slate-400 flex items-center gap-1">
-              <Award className="w-3.5 h-3.5 text-amber-400" /> Gates Mastered
+              <Award className="w-3.5 h-3.5 text-amber-400" />
+              {lang === 'IT' ? 'Gate Superati' : 'Gates Mastered'}
             </span>
             <span className="font-mono font-bold text-emerald-400">
               {completedCount} / {LEVELS.length}
@@ -353,10 +426,21 @@ export default function CommissioningAcademy({ onNavigateTab }) {
               style={{ width: `${(completedCount / LEVELS.length) * 100}%` }}
             />
           </div>
-          <div className="text-[11px] text-slate-500 mt-1.5">
-            {completedCount === LEVELS.length
-              ? 'IST Ready — All 5 gates cleared!'
-              : 'Complete all 5 gate challenges'}
+          <div className="flex items-center justify-between pt-1 no-print">
+            <button
+              onClick={() => window.print()}
+              className="text-[11px] text-cyan-300 hover:text-cyan-200 flex items-center gap-1 cursor-pointer"
+            >
+              <Printer className="w-3 h-3" /> Print / PDF Summary
+            </button>
+            {completedCount > 0 && (
+              <button
+                onClick={resetProgress}
+                className="text-[11px] text-slate-500 hover:text-slate-300 flex items-center gap-1 cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3" /> Reset
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -397,7 +481,6 @@ export default function CommissioningAcademy({ onNavigateTab }) {
 
       {/* Active Stage Deep-Dive Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left 7 Columns: Stage Overview + Clickable Subject Accordion */}
         <div className="lg:col-span-7 space-y-4">
           <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -416,7 +499,6 @@ export default function CommissioningAcademy({ onNavigateTab }) {
             <p className="text-xs text-slate-300 leading-relaxed">{activeLevel.summary}</p>
           </div>
 
-          {/* Clickable Subjects */}
           <div className="space-y-2.5">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 px-1">
               Click a Subject to Inspect Field Procedures
@@ -483,7 +565,7 @@ export default function CommissioningAcademy({ onNavigateTab }) {
           </div>
         </div>
 
-        {/* Right 5 Columns: Interactive Gate Challenge + Jump to Simulator */}
+        {/* Right 5 Columns: Gate Challenge + Simulator Bridge */}
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-4">
             <div className="flex items-center justify-between">
@@ -535,13 +617,12 @@ export default function CommissioningAcademy({ onNavigateTab }) {
             )}
           </div>
 
-          {/* Direct Bridge to Live Simulator */}
-          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col justify-between gap-3">
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col justify-between gap-3 no-print">
             <div className="flex items-start gap-2.5">
               <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
               <div className="text-xs text-slate-300 leading-relaxed">
-                Want to test the physics and electrical behavior behind{' '}
-                <strong className="text-slate-100">{activeLevel.level}</strong> interactively?
+                Test the live engineering physics behind{' '}
+                <strong className="text-slate-100">{activeLevel.level}</strong>:
               </div>
             </div>
             <button
@@ -552,6 +633,66 @@ export default function CommissioningAcademy({ onNavigateTab }) {
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Spot the Field Defect — Root-Cause Troubleshooting Arena */}
+      <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Wrench className="w-4 h-4 text-amber-400" />
+            <h4 className="text-sm font-bold text-slate-100">
+              {lang === 'IT'
+                ? 'Arena Diagnostica: Individua il Guasto in Cantiere'
+                : 'Spot the Field Defect — Root-Cause Troubleshooting Arena'}
+            </h4>
+          </div>
+          <span className="text-[11px] font-mono text-slate-400">Real Hyperscale Site Cases</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {FIELD_DEFECTS.map((defect) => {
+            const isSelected = openDefectId === defect.id;
+            return (
+              <div
+                key={defect.id}
+                onClick={() => setOpenDefectId(defect.id)}
+                className={`rounded-xl border p-4 transition cursor-pointer flex flex-col justify-between space-y-3 ${
+                  isSelected
+                    ? 'bg-slate-950 border-amber-500/60'
+                    : 'bg-slate-950/50 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <div className="space-y-2">
+                  <div className="text-[10px] font-mono font-bold text-amber-400">{defect.code}</div>
+                  <div className="text-xs font-bold text-slate-100 leading-snug">{defect.title}</div>
+                  <ul className="space-y-1 text-[11px] text-slate-400 list-disc pl-4">
+                    {defect.clues.map((c, i) => (
+                      <li key={i}>{c}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                {isSelected && (
+                  <div className="pt-2 border-t border-slate-800 space-y-2.5">
+                    <div className="text-[11px] text-emerald-300 leading-relaxed">
+                      <strong>Root Cause & Fix:</strong> {defect.rootCause}
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNavigateTab(defect.simTab);
+                      }}
+                      className="w-full py-2 px-3 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer no-print"
+                    >
+                      <span>{defect.simCta}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

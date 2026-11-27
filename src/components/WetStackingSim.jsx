@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
-import { Fuel, AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Fuel, AlertTriangle, CheckCircle2, ShieldAlert, Sparkles } from 'lucide-react';
 import { calculateWetStacking } from '../utils/engineeringMath';
 
-export default function WetStackingSim() {
+const PRESETS = [
+  { label: 'L3 BMS P2P Light Load (22%)', kva: 2500, pf: 0.8, kw: 440, hrs: 8 },
+  { label: 'L4 75% Load-Bank Burn-Off', kva: 2500, pf: 0.8, kw: 1500, hrs: 4 },
+  { label: '3000 kVA HV Gen Partial Run (38%)', kva: 3000, pf: 0.8, kw: 920, hrs: 12 },
+];
+
+export default function WetStackingSim({ lang }) {
   const [ratingKVA, setRatingKVA] = useState(2500);
   const [powerFactor, setPowerFactor] = useState(0.8);
   const [actualLoadKW, setActualLoadKW] = useState(480);
@@ -15,15 +21,41 @@ export default function WetStackingSim() {
     runHours,
   });
 
+  const applyPreset = (p) => {
+    setRatingKVA(p.kva);
+    setPowerFactor(p.pf);
+    setActualLoadKW(p.kw);
+    setRunHours(p.hrs);
+  };
+
   const barPct = Math.min(100, result.loadPct);
 
   return (
     <div className="space-y-6">
+      {/* 1-Click Presets */}
+      <div className="flex flex-wrap items-center gap-2 no-print">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1 mr-1">
+          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          {lang === 'IT' ? 'Scenari Rapidi:' : 'Presets:'}
+        </span>
+        {PRESETS.map((p) => (
+          <button
+            key={p.label}
+            onClick={() => applyPreset(p)}
+            className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 text-xs text-slate-300 transition cursor-pointer"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
       {/* Controls */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-900/80 border border-slate-800 rounded-xl p-5">
         <div>
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-slate-400">Generator Rating</span>
+            <span className="text-slate-400">
+              {lang === 'IT' ? 'Potenza Gruppo (kVA)' : 'Generator Rating'}
+            </span>
             <span className="font-mono font-semibold text-slate-100">{ratingKVA} kVA</span>
           </div>
           <input
@@ -55,7 +87,9 @@ export default function WetStackingSim() {
 
         <div>
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-slate-400">Actual Site Load</span>
+            <span className="text-slate-400">
+              {lang === 'IT' ? 'Carico Attivo (kW)' : 'Actual Site Load'}
+            </span>
             <span className="font-mono font-semibold text-cyan-300">{actualLoadKW} kW</span>
           </div>
           <input
@@ -71,7 +105,9 @@ export default function WetStackingSim() {
 
         <div>
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-slate-400">Run Duration</span>
+            <span className="text-slate-400">
+              {lang === 'IT' ? 'Ore Funzionamento' : 'Run Duration'}
+            </span>
             <span className="font-mono font-semibold text-amber-300">{runHours} hrs</span>
           </div>
           <input
@@ -110,15 +146,12 @@ export default function WetStackingSim() {
           </div>
         </div>
 
-        {/* Threshold Progress Bar */}
         <div className="relative w-full h-5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-          {/* 30% Danger Marker */}
           <div
             className="absolute top-0 bottom-0 w-0.5 bg-rose-400 z-10"
             style={{ left: '30%' }}
             title="30% Wet-Stacking Threshold"
           />
-          {/* 50% Optimal Marker */}
           <div
             className="absolute top-0 bottom-0 w-0.5 bg-emerald-400 z-10"
             style={{ left: '50%' }}

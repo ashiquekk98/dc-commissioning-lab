@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
-import { Thermometer, Wind, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Thermometer, Wind, CheckCircle2, AlertTriangle, Sparkles } from 'lucide-react';
 import { calculatePsychrometrics, humidityRatioFromTempRH } from '../utils/engineeringMath';
 
-export default function PsychrometricSim() {
+const PRESETS = [
+  { label: 'ASHRAE A1 Optimal (22°C / 45%)', temp: 22.0, rh: 45, deltaT: 12, mw: 4.0 },
+  { label: 'High-Density Containment (25°C / 42%)', temp: 25.0, rh: 42, deltaT: 16, mw: 8.0 },
+  { label: 'Winter Economizer ESD Trap (19°C / 22%)', temp: 19.0, rh: 22, deltaT: 10, mw: 3.0 },
+  { label: 'Summer Dehumidification Fault (24°C / 68%)', temp: 24.0, rh: 68, deltaT: 12, mw: 4.5 },
+];
+
+export default function PsychrometricSim({ lang }) {
   const [supplyTempC, setSupplyTempC] = useState(22.0);
   const [supplyRH, setSupplyRH] = useState(45);
   const [deltaTC, setDeltaTC] = useState(12);
@@ -15,7 +22,13 @@ export default function PsychrometricSim() {
     itLoadMW,
   });
 
-  // SVG Chart coordinate mapping: T from 10..45°C, W from 0..25 g/kg
+  const applyPreset = (p) => {
+    setSupplyTempC(p.temp);
+    setSupplyRH(p.rh);
+    setDeltaTC(p.deltaT);
+    setItLoadMW(p.mw);
+  };
+
   const width = 560;
   const height = 310;
   const padL = 48;
@@ -32,7 +45,6 @@ export default function PsychrometricSim() {
   const toX = (t) => padL + ((t - tMin) / (tMax - tMin)) * plotW;
   const toY = (wG) => padT + plotH - (Math.min(wMaxG, Math.max(0, wG)) / wMaxG) * plotH;
 
-  // Build RH curve paths (20%, 40%, 60%, 80%, 100%)
   const rhLevels = [20, 40, 60, 80, 100];
   const buildRhPath = (rh) => {
     const pts = [];
@@ -45,8 +57,6 @@ export default function PsychrometricSim() {
     return pts.join(' ');
   };
 
-  // ASHRAE Class A1 Recommended Envelope Polygon:
-  // Tdb: 18..27°C, Dew Point: 5.5..15.0°C (W ~ 5.6 g/kg to 10.7 g/kg), RH <= 60%
   const wDpLow = humidityRatioFromTempRH(5.5, 100) * 1000;
   const wDpHigh = humidityRatioFromTempRH(15.0, 100) * 1000;
   const a1PolygonPoints = [];
@@ -65,11 +75,30 @@ export default function PsychrometricSim() {
 
   return (
     <div className="space-y-6">
+      {/* 1-Click Presets */}
+      <div className="flex flex-wrap items-center gap-2 no-print">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1 mr-1">
+          <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+          {lang === 'IT' ? 'Scenari Rapidi:' : 'Presets:'}
+        </span>
+        {PRESETS.map((p) => (
+          <button
+            key={p.label}
+            onClick={() => applyPreset(p)}
+            className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/40 text-xs text-slate-300 transition cursor-pointer"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
       {/* Controls */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-900/80 border border-slate-800 rounded-xl p-5">
         <div>
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-slate-400">Supply Dry Bulb (Tdb)</span>
+            <span className="text-slate-400">
+              {lang === 'IT' ? 'Mandata Aria (Tdb)' : 'Supply Dry Bulb (Tdb)'}
+            </span>
             <span className="font-mono font-semibold text-cyan-300">{supplyTempC.toFixed(1)} °C</span>
           </div>
           <input
@@ -85,7 +114,9 @@ export default function PsychrometricSim() {
 
         <div>
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-slate-400">Supply Rel. Humidity</span>
+            <span className="text-slate-400">
+              {lang === 'IT' ? 'Umidità Relativa (UR)' : 'Supply Rel. Humidity'}
+            </span>
             <span className="font-mono font-semibold text-cyan-300">{supplyRH}%</span>
           </div>
           <input
@@ -117,7 +148,9 @@ export default function PsychrometricSim() {
 
         <div>
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-slate-400">Data Hall IT Load</span>
+            <span className="text-slate-400">
+              {lang === 'IT' ? 'Carico Termico Sala' : 'Data Hall IT Load'}
+            </span>
             <span className="font-mono font-semibold text-emerald-300">{itLoadMW.toFixed(1)} MW</span>
           </div>
           <input
@@ -153,7 +186,6 @@ export default function PsychrometricSim() {
 
       {/* Chart + Readouts */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Interactive Psychrometric SVG */}
         <div className="lg:col-span-7 bg-slate-900/70 border border-slate-800 rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
@@ -174,7 +206,6 @@ export default function PsychrometricSim() {
           </div>
 
           <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible">
-            {/* Grid Lines */}
             {[15, 20, 25, 30, 35, 40].map((t) => (
               <g key={t}>
                 <line
@@ -217,7 +248,6 @@ export default function PsychrometricSim() {
               </g>
             ))}
 
-            {/* Axis Labels */}
             <text
               x={padL + plotW / 2}
               y={height - 1}
@@ -236,7 +266,6 @@ export default function PsychrometricSim() {
               Humidity Ratio (g/kg)
             </text>
 
-            {/* RH Curves */}
             {rhLevels.map((rh) => (
               <path
                 key={rh}
@@ -248,7 +277,6 @@ export default function PsychrometricSim() {
               />
             ))}
 
-            {/* ASHRAE A1 Recommended Envelope */}
             <polygon
               points={a1PolygonPoints.join(' ')}
               fill="rgba(16, 185, 129, 0.22)"
@@ -256,7 +284,6 @@ export default function PsychrometricSim() {
               strokeWidth="1.5"
             />
 
-            {/* Sensible Heat Line (Supply -> Return) */}
             <line
               x1={supplyX}
               y1={supplyY}
@@ -267,16 +294,16 @@ export default function PsychrometricSim() {
               strokeDasharray="4 3"
             />
 
-            {/* Supply & Return Points */}
             <circle cx={supplyX} cy={supplyY} r="5.5" fill="#22d3ee" stroke="#0f172a" strokeWidth="1.5" />
             <circle cx={returnX} cy={returnY} r="5.5" fill="#fbbf24" stroke="#0f172a" strokeWidth="1.5" />
           </svg>
         </div>
 
-        {/* Calculated Properties Grid */}
         <div className="lg:col-span-5 grid grid-cols-2 gap-3 content-start">
           <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-4">
-            <div className="text-xs text-slate-400">Dew Point (Tdp)</div>
+            <div className="text-xs text-slate-400">
+              {lang === 'IT' ? 'Punto di Rugiada (Tdp)' : 'Dew Point (Tdp)'}
+            </div>
             <div className="text-xl font-mono font-bold text-cyan-300 mt-1">
               {data.dewPointC.toFixed(1)} °C
             </div>
@@ -284,7 +311,9 @@ export default function PsychrometricSim() {
           </div>
 
           <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-4">
-            <div className="text-xs text-slate-400">Wet Bulb (Twb)</div>
+            <div className="text-xs text-slate-400">
+              {lang === 'IT' ? 'Bulbo Umido (Twb)' : 'Wet Bulb (Twb)'}
+            </div>
             <div className="text-xl font-mono font-bold text-slate-100 mt-1">
               {data.wetBulbC.toFixed(1)} °C
             </div>
@@ -308,7 +337,9 @@ export default function PsychrometricSim() {
           </div>
 
           <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-4">
-            <div className="text-xs text-slate-400">Return Air State</div>
+            <div className="text-xs text-slate-400">
+              {lang === 'IT' ? 'Ripresa Aria CRAH' : 'Return Air State'}
+            </div>
             <div className="text-xl font-mono font-bold text-amber-300 mt-1">
               {data.returnTempC.toFixed(1)} °C
             </div>
@@ -317,7 +348,8 @@ export default function PsychrometricSim() {
 
           <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-4">
             <div className="text-xs text-slate-400 flex items-center gap-1">
-              <Wind className="w-3.5 h-3.5 text-emerald-400" /> Required Airflow
+              <Wind className="w-3.5 h-3.5 text-emerald-400" />
+              {lang === 'IT' ? 'Portata Aria' : 'Required Airflow'}
             </div>
             <div className="text-xl font-mono font-bold text-emerald-400 mt-1">
               {data.airflowM3s.toFixed(1)} <span className="text-xs font-normal text-slate-400">m³/s</span>

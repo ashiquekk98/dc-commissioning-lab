@@ -8,8 +8,44 @@ import {
   ChevronDown,
   ChevronRight,
   Info,
+  Sparkles,
 } from 'lucide-react';
 import { calculateTopology } from '../utils/engineeringMath';
+
+const PRESETS = [
+  {
+    label: '64 MW Hyperscale (8-to-7)',
+    mode: 'distributed',
+    numUnits: 8,
+    unitRatingMW: 3.0,
+    totalLoadMW: 20.0,
+    trips: [0],
+  },
+  {
+    label: '16 MW Colo (5-to-4)',
+    mode: 'distributed',
+    numUnits: 5,
+    unitRatingMW: 2.5,
+    totalLoadMW: 8.8,
+    trips: [],
+  },
+  {
+    label: 'N-2 Maint + Fault Stress',
+    mode: 'distributed',
+    numUnits: 6,
+    unitRatingMW: 2.5,
+    totalLoadMW: 11.5,
+    trips: [0, 1],
+  },
+  {
+    label: 'Block Catcher (4+1 STS)',
+    mode: 'catcher',
+    numUnits: 5,
+    unitRatingMW: 2.5,
+    totalLoadMW: 9.2,
+    trips: [1],
+  },
+];
 
 const TOPIC_CARDS = [
   {
@@ -26,7 +62,7 @@ const TOPIC_CARDS = [
   },
 ];
 
-export default function TopologySim() {
+export default function TopologySim({ lang }) {
   const [mode, setMode] = useState('distributed');
   const [numUnits, setNumUnits] = useState(6);
   const [unitRatingMW, setUnitRatingMW] = useState(2.5);
@@ -42,14 +78,12 @@ export default function TopologySim() {
     trippedIndices,
   });
 
-  const handleModeChange = (nextMode) => {
-    setMode(nextMode);
-    setTrippedIndices([]);
-  };
-
-  const handleUnitCountChange = (count) => {
-    setNumUnits(count);
-    setTrippedIndices([]);
+  const applyPreset = (p) => {
+    setMode(p.mode);
+    setNumUnits(p.numUnits);
+    setUnitRatingMW(p.unitRatingMW);
+    setTotalLoadMW(p.totalLoadMW);
+    setTrippedIndices(p.trips);
   };
 
   const toggleUnitTrip = (id) => {
@@ -58,26 +92,37 @@ export default function TopologySim() {
     );
   };
 
-  const handleQuickFault = () => {
-    if (trippedIndices.length > 0) {
-      setTrippedIndices([]);
-    } else {
-      setTrippedIndices([0]);
-    }
-  };
-
   return (
     <div className="space-y-6">
+      {/* 1-Click Scenario Presets */}
+      <div className="flex flex-wrap items-center gap-2 no-print">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1 mr-1">
+          <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+          {lang === 'IT' ? 'Scenari Rapidi:' : 'Presets:'}
+        </span>
+        {PRESETS.map((p) => (
+          <button
+            key={p.label}
+            onClick={() => applyPreset(p)}
+            className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 text-xs text-slate-300 transition cursor-pointer"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
       {/* Control Deck */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 bg-slate-900/80 border border-slate-800 rounded-xl p-5">
-        {/* Topology Selector */}
         <div className="lg:col-span-4 space-y-2">
           <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            UPS Architecture
+            {lang === 'IT' ? 'Architettura Quadri UPS' : 'UPS Architecture'}
           </label>
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={() => handleModeChange('distributed')}
+              onClick={() => {
+                setMode('distributed');
+                setTrippedIndices([]);
+              }}
               className={`px-3 py-2.5 rounded-lg text-xs font-semibold border transition text-left cursor-pointer ${
                 mode === 'distributed'
                   ? 'bg-emerald-500/15 border-emerald-500/60 text-emerald-300'
@@ -88,7 +133,10 @@ export default function TopologySim() {
               <div className="text-[11px] font-normal opacity-80">Shared concurrent load</div>
             </button>
             <button
-              onClick={() => handleModeChange('catcher')}
+              onClick={() => {
+                setMode('catcher');
+                setTrippedIndices([]);
+              }}
               className={`px-3 py-2.5 rounded-lg text-xs font-semibold border transition text-left cursor-pointer ${
                 mode === 'catcher'
                   ? 'bg-emerald-500/15 border-emerald-500/60 text-emerald-300'
@@ -101,11 +149,10 @@ export default function TopologySim() {
           </div>
         </div>
 
-        {/* Sliders (Up to 10 Lineups & 36 MW) */}
         <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
           <div>
             <div className="flex justify-between text-xs mb-1">
-              <span className="text-slate-400">Lineups</span>
+              <span className="text-slate-400">{lang === 'IT' ? 'Linee UPS' : 'Lineups'}</span>
               <span className="font-mono font-semibold text-slate-200">{numUnits} Units</span>
             </div>
             <input
@@ -114,14 +161,17 @@ export default function TopologySim() {
               max={10}
               step={1}
               value={numUnits}
-              onChange={(e) => handleUnitCountChange(Number(e.target.value))}
+              onChange={(e) => {
+                setNumUnits(Number(e.target.value));
+                setTrippedIndices([]);
+              }}
               className="w-full accent-emerald-400 cursor-pointer"
             />
           </div>
 
           <div>
             <div className="flex justify-between text-xs mb-1">
-              <span className="text-slate-400">Unit Rating</span>
+              <span className="text-slate-400">{lang === 'IT' ? 'Taglia UPS' : 'Unit Rating'}</span>
               <span className="font-mono font-semibold text-slate-200">{unitRatingMW.toFixed(1)} MW</span>
             </div>
             <input
@@ -137,7 +187,7 @@ export default function TopologySim() {
 
           <div>
             <div className="flex justify-between text-xs mb-1">
-              <span className="text-slate-400">Critical IT Load</span>
+              <span className="text-slate-400">{lang === 'IT' ? 'Carico IT' : 'Critical IT Load'}</span>
               <span className="font-mono font-semibold text-cyan-300">{totalLoadMW.toFixed(1)} MW</span>
             </div>
             <input
@@ -152,10 +202,9 @@ export default function TopologySim() {
           </div>
         </div>
 
-        {/* Fault Injection Action */}
-        <div className="lg:col-span-3 flex flex-col justify-center gap-2">
+        <div className="lg:col-span-3 flex flex-col justify-center gap-2 no-print">
           <button
-            onClick={handleQuickFault}
+            onClick={() => setTrippedIndices(trippedIndices.length > 0 ? [] : [0])}
             className={`w-full py-2.5 px-4 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition cursor-pointer ${
               trippedIndices.length > 0
                 ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
@@ -168,7 +217,7 @@ export default function TopologySim() {
               </>
             ) : (
               <>
-                <Zap className="w-4 h-4" /> Simulate Lineup Trip
+                <Zap className="w-4 h-4" /> {lang === 'IT' ? 'Simula Scatto Linea' : 'Simulate Lineup Trip'}
               </>
             )}
           </button>
@@ -294,7 +343,7 @@ export default function TopologySim() {
       </div>
 
       {/* Clickable Subject Explainers */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 no-print">
         {TOPIC_CARDS.map((card) => {
           const isOpen = openTopic === card.id;
           return (
