@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Fuel, AlertTriangle, CheckCircle2, ShieldAlert, Sparkles } from 'lucide-react';
 import { calculateWetStacking } from '../utils/engineeringMath';
+import InfoTip from './InfoTip';
 
 const PRESETS = [
   { label: 'L3 BMS P2P Light Load (22%)', kva: 2500, pf: 0.8, kw: 440, hrs: 8 },
@@ -71,7 +72,16 @@ export default function WetStackingSim({ lang }) {
 
         <div>
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-slate-400">Power Factor (cos φ)</span>
+            <span className="text-slate-400 flex items-center">
+              Power Factor (cos φ)
+              <InfoTip
+                lang={lang}
+                title="Power Factor (cos φ)"
+                itTerm="Fattore di Potenza"
+                what="The ratio between real working power (kW) that drives mechanical load and apparent power (kVA) rated on the alternator."
+                why="Standby diesel engines are sized in kW (typically 0.8 PF). A 2,500 kVA generator only delivers 2,000 kW of real engine power."
+              />
+            </span>
             <span className="font-mono font-semibold text-slate-100">{powerFactor.toFixed(2)}</span>
           </div>
           <input
@@ -127,7 +137,14 @@ export default function WetStackingSim({ lang }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
             <Fuel className="w-4 h-4 text-amber-400" />
-            <span>Engine Active Load Factor</span>
+            <span>Engine Active Load Factor & Wet-Stacking Threshold</span>
+            <InfoTip
+              lang={lang}
+              title="Diesel Wet-Stacking"
+              itTerm="Imbrattamento / Combustione Incompleta (Wet-Stacking)"
+              what="When a diesel generator runs below ~30% load, cylinder temperatures stay too cool to burn all injected fuel—leaving black oily carbon residue in the exhaust stack and turbocharger."
+              why="During data center construction, halls have almost no IT servers yet. Running generators lightly without a load bank causes cylinder glazing and reduces emergency rated output."
+            />
           </div>
           <div className="font-mono text-sm">
             <span className="font-bold text-slate-100">{actualLoadKW} kW</span>
@@ -203,7 +220,16 @@ export default function WetStackingSim({ lang }) {
 
         <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
           <div>
-            <div className="text-xs text-slate-400">Load-Bank Burn-Off Target</div>
+            <div className="text-xs text-slate-400 flex items-center">
+              Load-Bank Burn-Off Target
+              <InfoTip
+                lang={lang}
+                title="Resistive Load-Bank Burn-Off"
+                itTerm="Prova con Banco di Carico Resistivo"
+                what="Connecting portable high-power resistor banks to load the generator above 75% capacity for 1–4 hours."
+                why="High exhaust temperatures vaporize accumulated unburned fuel and burn away carbon deposits before customer handover."
+              />
+            </div>
             <div className="text-2xl font-mono font-bold text-amber-300 mt-1">
               {result.burnOffHours > 0 ? `${result.burnOffHours} hrs` : 'None Needed'}
             </div>

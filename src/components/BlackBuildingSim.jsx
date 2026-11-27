@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Activity, CheckCircle2, AlertTriangle, Sparkles, Zap } from 'lucide-react';
+import { Activity, CheckCircle2, AlertTriangle, Sparkles } from 'lucide-react';
 import { calculateBlackBuildingIST } from '../utils/engineeringMath';
+import InfoTip from './InfoTip';
 
 const PRESETS = [
   { label: 'Staggered Chiller Restart (Pass)', it: 10.0, cool: 3.6, gen: 18.0, step: 50, stagger: 12 },
@@ -31,7 +32,6 @@ export default function BlackBuildingSim({ lang }) {
     setChillerStaggerS(p.stagger);
   };
 
-  // Dual-axis SVG timeline: T = 0..90s
   const W = 740;
   const H = 290;
   const padL = 48;
@@ -42,12 +42,10 @@ export default function BlackBuildingSim({ lang }) {
   const plotH = H - padT - padB;
 
   const toX = (t) => padL + (t / 90) * plotW;
-  // Frequency axis: 47.0 Hz to 50.5 Hz
   const toYFreq = (f) => {
     const clamped = Math.max(47.0, Math.min(50.5, f));
     return padT + plotH - ((clamped - 47.0) / 3.5) * plotH;
   };
-  // Power axis: 0 to maxScaleMW
   const maxScaleMW = Math.max(genPlantMW * 1.15, res.peakGenLoadMW * 1.1, 10);
   const toYPower = (mw) => padT + plotH - (Math.min(maxScaleMW, mw) / maxScaleMW) * plotH;
 
@@ -148,7 +146,16 @@ export default function BlackBuildingSim({ lang }) {
 
         <div>
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-slate-400">Chiller Stagger</span>
+            <span className="text-slate-400 flex items-center">
+              Chiller Stagger
+              <InfoTip
+                lang={lang}
+                title="Chiller Sequential Restart Stagger"
+                itTerm="Avviamento Sequenziale Gruppi Frigo"
+                what="A programmed BMS time delay (e.g., 10–15 seconds) between restarting each chiller and primary pump after a blackout."
+                why="Electric motors draw 2–6× normal current for a few seconds at startup (inrush). Starting all chillers at once drags generator frequency below 48 Hz."
+              />
+            </span>
             <span className="font-mono font-semibold text-purple-300">{chillerStaggerS} s</span>
           </div>
           <input
@@ -185,7 +192,16 @@ export default function BlackBuildingSim({ lang }) {
       {/* KPI Strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
-          <div className="text-xs text-slate-400">Minimum Bus Frequency</div>
+          <div className="text-xs text-slate-400 flex items-center">
+            Minimum Bus Frequency
+            <InfoTip
+              lang={lang}
+              title="50 Hz Bus Frequency Dip (ANSI 81U)"
+              itTerm="Buco di Frequenza / Relè 81U"
+              what="When a sudden electrical load hits a generator, the engine slows down momentarily, dropping AC frequency below 50.0 Hz."
+              why="If frequency drops below 48.0 Hz, ANSI 81U under-frequency protection trips the generator breaker to prevent engine stall."
+            />
+          </div>
           <div
             className={`text-lg font-bold font-mono mt-0.5 ${
               res.minFreqHz < 48.0 ? 'text-rose-400' : 'text-emerald-400'
@@ -222,6 +238,13 @@ export default function BlackBuildingSim({ lang }) {
           <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
             <Activity className="w-4 h-4 text-emerald-400" />
             90-Second Black-Building IST Transient Response
+            <InfoTip
+              lang={lang}
+              title="Black-Building Integrated Systems Test (IST)"
+              itTerm="Prova in Bianco (Black-Building IST)"
+              what="The final Level 5 commissioning test where utility grid power is intentionally cut at 100% simulated heat load."
+              why="Proves that UPS batteries, emergency generators, switchgear controls, and cooling plants work together seamlessly with zero server downtime."
+            />
           </span>
           <div className="flex items-center gap-4 text-[11px] text-slate-400">
             <span className="flex items-center gap-1">
@@ -237,7 +260,6 @@ export default function BlackBuildingSim({ lang }) {
         </div>
 
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto overflow-visible">
-          {/* Time Vertical Grid */}
           {[0, 5, 15, 25, 40, 55, 70, 90].map((t) => (
             <g key={t}>
               <line
@@ -259,7 +281,6 @@ export default function BlackBuildingSim({ lang }) {
             </g>
           ))}
 
-          {/* Left Y-Axis: Frequency */}
           {[47.5, 48.0, 49.0, 50.0].map((f) => (
             <g key={f}>
               <line
@@ -281,7 +302,6 @@ export default function BlackBuildingSim({ lang }) {
             </g>
           ))}
 
-          {/* Right Y-Axis: MW */}
           {[0, Math.round(maxScaleMW * 0.5), Math.round(maxScaleMW)].map((mw) => (
             <text
               key={mw}
@@ -294,7 +314,6 @@ export default function BlackBuildingSim({ lang }) {
             </text>
           ))}
 
-          {/* 48.0 Hz ANSI 81U Trip Line */}
           <line
             x1={padL}
             y1={tripLineY}
@@ -305,11 +324,9 @@ export default function BlackBuildingSim({ lang }) {
             strokeDasharray="5 3"
           />
 
-          {/* Generator Load & Frequency Curves */}
           <path d={genLoadPath} fill="none" stroke="#fbbf24" strokeWidth="2" />
           <path d={freqPath} fill="none" stroke="#34d399" strokeWidth="2.5" />
 
-          {/* Event Annotations */}
           <text x={toX(5) + 4} y={padT + 14} className="fill-rose-300 text-[10px] font-mono">
             Utility Trip
           </text>
@@ -321,7 +338,6 @@ export default function BlackBuildingSim({ lang }) {
           </text>
         </svg>
 
-        {/* Sequence Event Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-800/80 text-[11px]">
           <div className="bg-slate-950/70 rounded-lg p-2.5 border border-slate-800">
             <span className="font-mono text-rose-400 font-bold">T+05s:</span>{' '}

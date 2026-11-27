@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Thermometer, Wind, CheckCircle2, AlertTriangle, Sparkles } from 'lucide-react';
 import { calculatePsychrometrics, humidityRatioFromTempRH } from '../utils/engineeringMath';
+import InfoTip from './InfoTip';
 
 const PRESETS = [
   { label: 'ASHRAE A1 Optimal (22°C / 45%)', temp: 22.0, rh: 45, deltaT: 12, mw: 4.0 },
@@ -181,7 +182,16 @@ export default function PsychrometricSim({ lang }) {
           )}
           <span>{data.statusReason}</span>
         </div>
-        <span className="font-mono hidden sm:inline">ASHRAE TC 9.9 Class A1</span>
+        <span className="font-mono hidden sm:flex items-center">
+          ASHRAE TC 9.9 Class A1
+          <InfoTip
+            lang={lang}
+            title="ASHRAE TC 9.9 Class A1 Envelope"
+            itTerm="Inviluppo Termoigrometrico ASHRAE A1"
+            what="The global thermal standard for enterprise data halls: 18–27°C dry-bulb supply temperature, 5.5–15°C dew point, and ≤ 60% relative humidity."
+            why="Proving the hall holds inside this green polygon during Level 4 heat-load testing is mandatory before client IT server installation."
+          />
+        </span>
       </div>
 
       {/* Chart + Readouts */}
@@ -301,8 +311,15 @@ export default function PsychrometricSim({ lang }) {
 
         <div className="lg:col-span-5 grid grid-cols-2 gap-3 content-start">
           <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-4">
-            <div className="text-xs text-slate-400">
+            <div className="text-xs text-slate-400 flex items-center">
               {lang === 'IT' ? 'Punto di Rugiada (Tdp)' : 'Dew Point (Tdp)'}
+              <InfoTip
+                lang={lang}
+                title="Dew Point Temperature (Tdp)"
+                itTerm="Punto di Rugiada"
+                what="The exact temperature at which water vapor in the air condenses into liquid droplets."
+                why="Below 5.5°C air becomes too dry and risks Electrostatic Discharge (ESD) sparks on server boards; above 15°C risks condensation on chilled pipes."
+              />
             </div>
             <div className="text-xl font-mono font-bold text-cyan-300 mt-1">
               {data.dewPointC.toFixed(1)} °C
@@ -311,8 +328,15 @@ export default function PsychrometricSim({ lang }) {
           </div>
 
           <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-4">
-            <div className="text-xs text-slate-400">
+            <div className="text-xs text-slate-400 flex items-center">
               {lang === 'IT' ? 'Bulbo Umido (Twb)' : 'Wet Bulb (Twb)'}
+              <InfoTip
+                lang={lang}
+                title="Wet-Bulb Temperature (Twb)"
+                itTerm="Temperatura di Bulbo Umido"
+                what="The lowest temperature air can reach purely through water evaporation."
+                why="Determines how efficiently cooling towers and adiabatic free-cooling chillers can reject heat without mechanical compressors."
+              />
             </div>
             <div className="text-xl font-mono font-bold text-slate-100 mt-1">
               {data.wetBulbC.toFixed(1)} °C
@@ -329,7 +353,16 @@ export default function PsychrometricSim({ lang }) {
           </div>
 
           <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-4">
-            <div className="text-xs text-slate-400">Specific Enthalpy</div>
+            <div className="text-xs text-slate-400 flex items-center">
+              Specific Enthalpy
+              <InfoTip
+                lang={lang}
+                title="Specific Enthalpy (h)"
+                itTerm="Entalpia Specifica"
+                what="Total thermal energy (sensible heat + moisture latent heat) carried per kilogram of dry air."
+                why="Used by BMS economizer logic to decide when outdoor air is cool and dry enough for direct free cooling."
+              />
+            </div>
             <div className="text-xl font-mono font-bold text-slate-100 mt-1">
               {data.enthalpyKJkg.toFixed(1)} <span className="text-xs font-normal text-slate-400">kJ/kg</span>
             </div>

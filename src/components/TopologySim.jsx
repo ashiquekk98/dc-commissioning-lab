@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { calculateTopology } from '../utils/engineeringMath';
+import InfoTip from './InfoTip';
 
 const PRESETS = [
   {
@@ -114,8 +115,15 @@ export default function TopologySim({ lang }) {
       {/* Control Deck */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 bg-slate-900/80 border border-slate-800 rounded-xl p-5">
         <div className="lg:col-span-4 space-y-2">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center">
             {lang === 'IT' ? 'Architettura Quadri UPS' : 'UPS Architecture'}
+            <InfoTip
+              lang={lang}
+              title="UPS Redundancy Topologies"
+              itTerm="Ridondanza Distribuita vs. Riserva (Catcher)"
+              what="Distributed Redundancy splits server dual-corded power across N active buses so all units share load. Block Redundant keeps one idle Catcher UPS ready to step in via a Static Transfer Switch (STS)."
+              why="Determines how much UPS capacity you can safely sell to customers without overloading surviving units during a bus fault."
+            />
           </label>
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -234,7 +242,16 @@ export default function TopologySim({ lang }) {
           <div className="text-lg font-bold font-mono text-slate-100 mt-0.5">{result.redundancyLabel}</div>
         </div>
         <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
-          <div className="text-xs text-slate-400">Firm (N-1) Capacity</div>
+          <div className="text-xs text-slate-400 flex items-center">
+            Firm (N-1) Capacity
+            <InfoTip
+              lang={lang}
+              title="Firm (N-1) Capacity"
+              itTerm="Capacità Garantita N-1"
+              what="Maximum IT load the plant can support with one entire UPS lineup completely offline for maintenance or failure."
+              why="Hyperscale SLAs prohibit exceeding Firm Capacity—otherwise a single fault forces healthy UPS units onto raw utility bypass."
+            />
+          </div>
           <div className="text-lg font-bold font-mono text-emerald-400 mt-0.5">
             {result.firmCapacityMW} MW
           </div>
